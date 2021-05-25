@@ -35,7 +35,7 @@ def experiment(variant):
     set_seed(int(args.seed))  #todo: should this be variant['seed']
     torch.manual_seed(int(args.seed))
     if variant['mode'] != 'ec2' and not variant['local_docker']:
-        ptu.set_gpu_mode(True)
+        ptu.set_gpu_mode(False)
 
     if variant['env_name'] == 'pointmass2':
         print("pointmass")
