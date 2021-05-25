@@ -39,11 +39,12 @@ RUN curl -o /usr/local/bin/patchelf https://s3-us-west-2.amazonaws.com/openai-sc
 ENV LANG C.UTF-8
 
 RUN mkdir -p /root/.mujoco \
-    && wget https://www.roboti.us/download/mjpro150_linux.zip -O mujoco.zip \
+    && wget https://www.roboti.us/download/mujoco200_linux.zip -O mujoco.zip \
     && unzip mujoco.zip -d /root/.mujoco \
+    && mv /root/.mujoco/mojoco200_linux /root/.mujoco/mujoco200 \
     && rm mujoco.zip
 COPY ./mjkey.txt /root/.mujoco/
-ENV LD_LIBRARY_PATH /root/.mujoco/mjpro150/bin:${LD_LIBRARY_PATH}
+ENV LD_LIBRARY_PATH /root/.mujoco/mjpro200/bin:${LD_LIBRARY_PATH}
 ENV LD_LIBRARY_PATH /usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
 
 COPY vendor/Xdummy /usr/local/bin/Xdummy
@@ -64,8 +65,8 @@ WORKDIR /root/code
 WORKDIR /mujoco_py
 
 # For atari-py
-#RUN apt-get install -y zlib1g-dev swig cmake
-RUN apt-get install -y swig
+# RUN apt-get install -y zlib1g-dev swig cmake
+# RUN apt-get install -y swig
 
 # Previous versions installed from a requirements.txt, but direct pip
 # install seems cleaner
@@ -87,7 +88,7 @@ RUN pip install sphinx_rtd_theme
 RUN pip install numpydoc
 RUN pip install cloudpickle==0.5.2
 RUN pip install cached-property==1.3.1
-RUN pip install gym[all]==0.10.5
+# RUN pip install gym[all]==0.10.5
 RUN pip install gitpython==2.1.7
 RUN pip install gtimer==1.0.0b5
 RUN pip install awscli==1.11.179
