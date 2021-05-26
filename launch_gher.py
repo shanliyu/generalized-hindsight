@@ -20,6 +20,9 @@ from rlkit.torch.multitask.gym_relabelers import ReacherRelabelerWithGoalAndObs
 from rlkit.torch.multitask.fetch_reach_relabelers import FetchReachRelabelerWithGoalAndObs
 from rlkit.torch.multitask.half_cheetah_relabeler import HalfCheetahRelabelerMoreFeatures
 from rlkit.torch.multitask.ant_direction_relabeler import AntDirectionRelabelerNewSparse
+from rlkit.torch.multitask.pendulum_relabeler import PendulumRelabeler
+from rlkit.torch.multitask.hand_reach_relabelers import FingerRelabeler, HandReachEnv, HandRelabeler
+
 
 # envs
 from gym.spaces import Discrete, MultiBinary
@@ -29,10 +32,21 @@ from rlkit.envs.updated_half_cheetah import HalfCheetahEnv
 from rlkit.envs.wrappers import NormalizedBoxEnv, TimeLimit
 from rlkit.envs.fetch_reach import FetchReachEnv
 from rlkit.envs.updated_ant import AntEnv
+from rlkit.envs.hopper import HopperEnv
+from rlkit.envs.mujoco_env import MujocoEnv
+from rlkit.envs.mujoco_image_env import ImageMujocoEnv
+from rlkit.envs.mujoco_image_env import ImageMujocoWithObsEnv
+from rlkit.envs.hand_reach import HandReachEnv
+# from rlkit.envs. import AntEnv
+# from rlkit.envs.updated_ant import AntEnv
+# from rlkit.envs.updated_ant import AntEnv
+# from rlkit.envs.updated_ant import AntEnv
+# from rlkit.envs.updated_ant import AntEnv
+# from rlkit.envs.updated_ant import AntEnv
 
 
 def experiment(variant):
-    set_seed(int(args.seed))  #todo: should this be variant['seed']
+    set_seed(int(args.seed))  # todo: should this be variant['seed']
     torch.manual_seed(int(args.seed))
     if variant['mode'] != 'ec2' and not variant['local_docker']:
         ptu.set_gpu_mode(False)
@@ -49,9 +63,14 @@ def experiment(variant):
         relabeler_cls = AntDirectionRelabelerNewSparse
     elif variant['env_name'] in {'halfcheetahhard'}:
         print("halfcheetah")
+        expl_env = NormalizedBoxEnv(HandReachEnv())
+        eval_env = NormalizedBoxEnv(HandReachEnv())
+        relabeler_cls = HalfCheetahRelabelerMoreFeatures
+    elif variant['env_name'] in {'handreach'}:
+        print("halfcheetah")
         expl_env = NormalizedBoxEnv(HalfCheetahEnv())
         eval_env = NormalizedBoxEnv(HalfCheetahEnv())
-        relabeler_cls = HalfCheetahRelabelerMoreFeatures
+        relabeler_cls = HandRelabeler
     elif variant['env_name'] in {'pointreacherobs'}:
         print('pointreacher')
         expl_env = PointReacherEnv(**variant['env_kwargs'])
@@ -118,8 +137,10 @@ def experiment(variant):
     expl_policy = policy
 
     variant['relabeler_kwargs']['discount'] = variant['trainer_kwargs']['discount']
-    relabeler = relabeler_cls(q1=qf1, q2=qf2, action_fn=eval_policy.wrapped_policy, **variant['relabeler_kwargs'])
-    eval_relabeler = relabeler_cls(q1=qf1, q2=qf2, action_fn=eval_policy.wrapped_policy, **variant['relabeler_kwargs'], is_eval=True)
+    relabeler = relabeler_cls(
+        q1=qf1, q2=qf2, action_fn=eval_policy.wrapped_policy, **variant['relabeler_kwargs'])
+    eval_relabeler = relabeler_cls(
+        q1=qf1, q2=qf2, action_fn=eval_policy.wrapped_policy, **variant['relabeler_kwargs'], is_eval=True)
     replay_buffer = MultiTaskReplayBuffer(
         env=expl_env,
         relabeler=relabeler,
@@ -129,7 +150,8 @@ def experiment(variant):
         eval_env,
         eval_policy,
         eval_relabeler,
-        is_eval=True, # variant['plot'],  # will attempt to plot if it's the pointmass
+        # variant['plot'],  # will attempt to plot if it's the pointmass
+        is_eval=True,
         **variant['path_collector_kwargs']
     )
     expl_path_collector = TaskConditionedPathCollector(
@@ -151,18 +173,25 @@ def experiment(variant):
     algorithm.to(ptu.device)
     algorithm.train()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='pointmass', help='name of env to run on')
-    parser.add_argument('--alg', type=str, default='SAC', help='name of algorithm to run')
-    parser.add_argument('--n_sampled_latents', type=int, default=5, help="number of latents to sample")
+    parser.add_argument('--env', type=str, default='pointmass',
+                        help='name of env to run on')
+    parser.add_argument('--alg', type=str, default='SAC',
+                        help='name of algorithm to run')
+    parser.add_argument('--n_sampled_latents', type=int,
+                        default=5, help="number of latents to sample")
     parser.add_argument('--n_to_take', type=int, default=1,
                         help="number of latents to relabel with, should be less than n_sampled_latents")
-    parser.add_argument('--relabel', action='store_true', help='whether to relabel')
-    parser.add_argument('--use_advantages', '-use_adv', action='store_true', help='use_advantages for relabeling')
+    parser.add_argument('--relabel', action='store_true',
+                        help='whether to relabel')
+    parser.add_argument('--use_advantages', '-use_adv',
+                        action='store_true', help='use_advantages for relabeling')
     parser.add_argument('--irl', action='store_true',
                         help='use approximate irl to choose relabeling latents')
-    parser.add_argument('--plot', action='store_true', help='plot the trajectories')
+    parser.add_argument('--plot', action='store_true',
+                        help='plot the trajectories')
     parser.add_argument('--cache', action='store_true')
     parser.add_argument('--sparse', type=float, default=None)
     parser.add_argument('--ngradsteps', type=int, default=100)
@@ -181,21 +210,27 @@ if __name__ == "__main__":
     parser.add_argument('--latent_to_all_layers', action='store_true')
 
     parser.add_argument('--seed', type=int, default=0, help="random seed")
-    parser.add_argument('--n_experiments', '-n', type=int, default=1, help="number of random seeds to use. If not -1, overrides seed ")
+    parser.add_argument('--n_experiments', '-n', type=int, default=1,
+                        help="number of random seeds to use. If not -1, overrides seed ")
     # experiment name
     parser.add_argument('--exp_name', '-name', type=str, default=None)
     parser.add_argument('--extra', '-x', type=str, default=None)
     parser.add_argument('--test', '-test', action='store_true')
-    parser.add_argument('--epochs', type=int, default=50, help="number of latents to sample")
+    parser.add_argument('--epochs', type=int, default=50,
+                        help="number of latents to sample")
     parser.add_argument('--save_videos', action='store_true')
 
     # for reacher
-    parser.add_argument('--safetyfn', '-safety', type=str, default='newlog')  # newlog, linear, inverse
-    parser.add_argument('--energyfn', '-energy', type=str, default='velocity')  # work, kinetic, velocity
-    parser.add_argument('--energyfactor', type=float, default=1.0, help="how much to multiply energy by")
+    parser.add_argument('--safetyfn', '-safety', type=str,
+                        default='newlog')  # newlog, linear, inverse
+    parser.add_argument('--energyfn', '-energy', type=str,
+                        default='velocity')  # work, kinetic, velocity
+    parser.add_argument('--energyfactor', type=float,
+                        default=1.0, help="how much to multiply energy by")
 
     # for fetch reacher
-    parser.add_argument('--truncate_obs', action='store_true', help='only return end_effector loc')
+    parser.add_argument('--truncate_obs', action='store_true',
+                        help='only return end_effector loc')
 
     # for ant
     parser.add_argument('--use_xy', action='store_true')
@@ -208,7 +243,6 @@ if __name__ == "__main__":
         seeds = list(range(10, 10 + 10 * args.n_experiments, 10))
     else:
         seeds = [args.seed]
-
 
     assert args.n_to_take <= args.n_sampled_latents
     variant = dict(
@@ -269,11 +303,13 @@ if __name__ == "__main__":
         latent_shape_multiplier=args.latent_shape_multiplier
     )
 
-    logger_kwargs = dict(snapshot_mode='gap_and_last', snapshot_gap=min(50, args.epochs - 1))
+    logger_kwargs = dict(snapshot_mode='gap_and_last',
+                         snapshot_gap=min(50, args.epochs - 1))
 
     if args.env == 'pointmass2':
         variant['relabeler_kwargs']['power'] = 1
-        variant['env_kwargs'] = dict(horizon=variant['algo_kwargs']['max_path_length'])
+        variant['env_kwargs'] = dict(
+            horizon=variant['algo_kwargs']['max_path_length'])
         exp_postfix = ''
         variant['algo_kwargs']['batch_size'] = 128
         variant['qf_kwargs']['hidden_sizes'] = [400, 300]
@@ -292,8 +328,28 @@ if __name__ == "__main__":
         variant['replay_buffer_kwargs']['max_replay_buffer_size'] = int(1E6)
         variant['qf_kwargs']['hidden_sizes'] = [256, 256]
         variant['policy_kwargs']['hidden_sizes'] = [256, 256]
-        variant['env_kwargs'] = dict(use_xy=args.use_xy, contact_forces=args.contact_forces)
-        exp_postfix = 'horizon{}'.format(variant['algo_kwargs']['max_path_length'])
+        variant['env_kwargs'] = dict(
+            use_xy=args.use_xy, contact_forces=args.contact_forces)
+        exp_postfix = 'horizon{}'.format(
+            variant['algo_kwargs']['max_path_length'])
+    elif args.env in {'handreach'}:
+        variant['replay_buffer_kwargs']['latent_dim'] = 1
+        if args.env in {'antdirectionnewsparse'}:
+            assert args.directiontype in {'90', '180', '360'}
+            variant['relabeler_kwargs']['type'] = args.directiontype
+        variant['algo_kwargs']['max_path_length'] = 1000
+        variant['trainer_kwargs']['discount'] = 0.99
+        variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 1000
+        variant['algo_kwargs']['num_train_loops_per_epoch'] = 1
+        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 25000
+        variant['algo_kwargs']['min_num_steps_before_training'] = 1000
+        variant['replay_buffer_kwargs']['max_replay_buffer_size'] = int(1E6)
+        variant['qf_kwargs']['hidden_sizes'] = [256, 256]
+        variant['policy_kwargs']['hidden_sizes'] = [256, 256]
+        variant['env_kwargs'] = dict(
+            use_xy=args.use_xy, contact_forces=args.contact_forces)
+        exp_postfix = 'horizon{}'.format(
+            variant['algo_kwargs']['max_path_length'])
     elif args.env in {'halfcheetahhard'}:
         variant['replay_buffer_kwargs']['latent_dim'] = 4
         variant['algo_kwargs']['max_path_length'] = 1000
@@ -314,7 +370,8 @@ if __name__ == "__main__":
         variant['algo_kwargs']['num_eval_steps_per_epoch'] = 1000
         variant['replay_buffer_kwargs']['max_replay_buffer_size'] = 2000
         variant['env_kwargs'] = dict(horizon=20)
-        exp_postfix = 'horizon{}'.format(variant['algo_kwargs']['max_path_length'])
+        exp_postfix = 'horizon{}'.format(
+            variant['algo_kwargs']['max_path_length'])
         if args.sparse:
             exp_postfix += 'sparse{}'.format(str(args.sparse))
         variant['replay_buffer_kwargs']['latent_dim'] = 6
@@ -333,7 +390,8 @@ if __name__ == "__main__":
         variant['replay_buffer_kwargs']['max_replay_buffer_size'] = 250000
         variant['qf_kwargs']['hidden_sizes'] = [256, 256]
         variant['policy_kwargs']['hidden_sizes'] = [256, 256]
-        exp_postfix = 'horizon{}'.format(variant['algo_kwargs']['max_path_length'])
+        exp_postfix = 'horizon{}'.format(
+            variant['algo_kwargs']['max_path_length'])
         variant['relabeler_kwargs']['sparse_reward'] = args.sparse
         if args.sparse:
             exp_postfix += 'sparse{}'.format(str(args.sparse))
@@ -359,7 +417,8 @@ if __name__ == "__main__":
         exp_dir = 'gher-{}-{}-{}e-{}s-disc{}'.format(args.env,
                                                      variant['algorithm'],
                                                      str(args.epochs),
-                                                     str(variant['algo_kwargs']['num_expl_steps_per_train_loop']),
+                                                     str(variant['algo_kwargs']
+                                                         ['num_expl_steps_per_train_loop']),
                                                      str(variant['trainer_kwargs']['discount']))
         if len(exp_postfix) > 0:
             exp_dir += '-' + exp_postfix
@@ -370,7 +429,7 @@ if __name__ == "__main__":
     sweeper = DeterministicHyperparameterSweeper(dict(seed=seeds), variant)
     all_variants = sweeper.iterate_hyperparameters()
     # for i, variant in enumerate(all_variants):
-        # variant['gpu_id'] = i % gpu_configs.VARYS  #todo: change this
+    # variant['gpu_id'] = i % gpu_configs.VARYS  #todo: change this
     for variant in all_variants:
         if args.ec2:
             run_experiment(experiment, mode='ec2', exp_prefix=exp_dir, variant=variant,
@@ -390,5 +449,6 @@ if __name__ == "__main__":
                            num_exps_per_instance=1)
 
         else:
-            setup_logger(exp_dir, variant=variant, seed=variant['seed'], **logger_kwargs)
+            setup_logger(exp_dir, variant=variant,
+                         seed=variant['seed'], **logger_kwargs)
             experiment(variant)
