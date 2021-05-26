@@ -20,8 +20,8 @@ from rlkit.torch.multitask.gym_relabelers import ReacherRelabelerWithGoalAndObs
 from rlkit.torch.multitask.fetch_reach_relabelers import FetchReachRelabelerWithGoalAndObs
 from rlkit.torch.multitask.half_cheetah_relabeler import HalfCheetahRelabelerMoreFeatures
 from rlkit.torch.multitask.ant_direction_relabeler import AntDirectionRelabelerNewSparse
+from rlkit.torch.multitask.hand_reach_relabelers import HandRelabeler
 from rlkit.torch.multitask.pendulum_relabeler import PendulumRelabeler
-from rlkit.torch.multitask.hand_reach_relabelers import FingerRelabeler, HandReachEnv, HandRelabeler
 
 
 # envs
@@ -31,18 +31,11 @@ from rlkit.envs.point_reacher_env import PointReacherEnv
 from rlkit.envs.updated_half_cheetah import HalfCheetahEnv
 from rlkit.envs.wrappers import NormalizedBoxEnv, TimeLimit
 from rlkit.envs.fetch_reach import FetchReachEnv
-from rlkit.envs.updated_ant import AntEnv
-from rlkit.envs.hopper import HopperEnv
-from rlkit.envs.mujoco_env import MujocoEnv
-from rlkit.envs.mujoco_image_env import ImageMujocoEnv
-from rlkit.envs.mujoco_image_env import ImageMujocoWithObsEnv
 from rlkit.envs.hand_reach import HandReachEnv
-# from rlkit.envs. import AntEnv
-# from rlkit.envs.updated_ant import AntEnv
-# from rlkit.envs.updated_ant import AntEnv
-# from rlkit.envs.updated_ant import AntEnv
-# from rlkit.envs.updated_ant import AntEnv
-# from rlkit.envs.updated_ant import AntEnv
+from rlkit.envs.updated_ant import AntEnv
+from rlkit.envs.hand_reach import FingerReachEnv, HandReachEnv
+from rlkit.envs.swingup_gym import PendulumEnv
+
 
 
 def experiment(variant):
@@ -63,14 +56,24 @@ def experiment(variant):
         relabeler_cls = AntDirectionRelabelerNewSparse
     elif variant['env_name'] in {'halfcheetahhard'}:
         print("halfcheetah")
-        expl_env = NormalizedBoxEnv(HandReachEnv())
-        eval_env = NormalizedBoxEnv(HandReachEnv())
-        relabeler_cls = HalfCheetahRelabelerMoreFeatures
-    elif variant['env_name'] in {'handreach'}:
-        print("halfcheetah")
         expl_env = NormalizedBoxEnv(HalfCheetahEnv())
         eval_env = NormalizedBoxEnv(HalfCheetahEnv())
+        relabeler_cls = HalfCheetahRelabelerMoreFeatures
+
+    elif variant['env_name'] in {'handreach'}:
+        print('handreach')
+        expl_env = NormalizedBoxEnv(HandReachEnv())
+        eval_env = NormalizedBoxEnv(HandReachEnv())
         relabeler_cls = HandRelabeler
+
+    elif variant['env_name'] in {'pendulum'}:
+        print('pendulum')
+        expl_env = NormalizedBoxEnv(PendulumEnv())
+        eval_env = NormalizedBoxEnv(PendulumEnv())
+        relabeler_cls = PendulumRelabeler
+
+
+
     elif variant['env_name'] in {'pointreacherobs'}:
         print('pointreacher')
         expl_env = PointReacherEnv(**variant['env_kwargs'])
@@ -332,7 +335,26 @@ if __name__ == "__main__":
             use_xy=args.use_xy, contact_forces=args.contact_forces)
         exp_postfix = 'horizon{}'.format(
             variant['algo_kwargs']['max_path_length'])
+
     elif args.env in {'handreach'}:
+        variant['replay_buffer_kwargs']['latent_dim'] = 8
+        variant['env_kwargs'] = dict(
+            use_xy=args.use_xy, contact_forces=args.contact_forces)
+        variant['algo_kwargs']['max_path_length'] = 50
+        variant['trainer_kwargs']['discount'] = 0.98
+        variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 250
+        variant['algo_kwargs']['num_train_loops_per_epoch'] = 1
+        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 25 * 50
+        variant['replay_buffer_kwargs']['max_replay_buffer_size'] = 250000
+        variant['qf_kwargs']['hidden_sizes'] = [256, 256]
+        variant['policy_kwargs']['hidden_sizes'] = [256, 256]
+        exp_postfix = 'horizon{}'.format(
+            variant['algo_kwargs']['max_path_length'])
+        variant['relabeler_kwargs']['sparse_reward'] = args.sparse
+        if args.sparse:
+            exp_postfix += 'sparse{}'.format(str(args.sparse))
+
+    elif args.env in {'pendulum'}:
         variant['replay_buffer_kwargs']['latent_dim'] = 1
         if args.env in {'antdirectionnewsparse'}:
             assert args.directiontype in {'90', '180', '360'}
@@ -350,6 +372,7 @@ if __name__ == "__main__":
             use_xy=args.use_xy, contact_forces=args.contact_forces)
         exp_postfix = 'horizon{}'.format(
             variant['algo_kwargs']['max_path_length'])
+
     elif args.env in {'halfcheetahhard'}:
         variant['replay_buffer_kwargs']['latent_dim'] = 4
         variant['algo_kwargs']['max_path_length'] = 1000
