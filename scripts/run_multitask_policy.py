@@ -26,7 +26,7 @@ def simulate_policy(args):
             policy,
             relabeler,
             max_path_length=args.H,
-            render=False,
+            render=render,
             render_kwargs=dict(mode='human'))
 
 if __name__ == "__main__":
