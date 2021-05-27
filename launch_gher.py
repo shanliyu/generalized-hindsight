@@ -387,9 +387,9 @@ if __name__ == "__main__":
         variant['policy_kwargs']['hidden_sizes'] = [256, 256]
         exp_postfix = ''
     elif args.env in {'pointreacherobs'}:
-        variant['algo_kwargs']['max_path_length'] = 20
-        variant['trainer_kwargs']['discount'] = 0.97
-        variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 20
+        variant['algo_kwargs']['max_path_length'] = 50
+        variant['trainer_kwargs']['discount'] = 0.95
+        variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 50
         variant['algo_kwargs']['num_train_loops_per_epoch'] = 5
         variant['algo_kwargs']['num_eval_steps_per_epoch'] = 1000
         variant['replay_buffer_kwargs']['max_replay_buffer_size'] = 2000
