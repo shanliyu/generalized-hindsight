@@ -322,7 +322,7 @@ if __name__ == "__main__":
         if args.env in {'antdirectionnewsparse'}:
             assert args.directiontype in {'90', '180', '360'}
             variant['relabeler_kwargs']['type'] = args.directiontype
-        variant['algo_kwargs']['max_path_length'] = 1000
+        variant['algo_kwargs']['max_path_length'] = 500
         variant['trainer_kwargs']['discount'] = 0.99
         variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 1000
         variant['algo_kwargs']['num_train_loops_per_epoch'] = 1
@@ -337,22 +337,23 @@ if __name__ == "__main__":
             variant['algo_kwargs']['max_path_length'])
 
     elif args.env in {'handreach'}:
-        variant['replay_buffer_kwargs']['latent_dim'] = 8
-        variant['env_kwargs'] = dict(
-            use_xy=args.use_xy, contact_forces=args.contact_forces)
-        variant['algo_kwargs']['max_path_length'] = 50
-        variant['trainer_kwargs']['discount'] = 0.98
-        variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 250
+        variant['replay_buffer_kwargs']['latent_dim'] = 1
+        if args.env in {'antdirectionnewsparse'}:
+            assert args.directiontype in {'90', '180', '360'}
+            variant['relabeler_kwargs']['type'] = args.directiontype
+        variant['algo_kwargs']['max_path_length'] = 1000
+        variant['trainer_kwargs']['discount'] = 0.97
+        variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 1000
         variant['algo_kwargs']['num_train_loops_per_epoch'] = 1
-        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 25 * 50
-        variant['replay_buffer_kwargs']['max_replay_buffer_size'] = 250000
+        variant['algo_kwargs']['num_eval_steps_per_epoch'] = 25000
+        variant['algo_kwargs']['min_num_steps_before_training'] = 1000
+        variant['replay_buffer_kwargs']['max_replay_buffer_size'] = int(1E6)
         variant['qf_kwargs']['hidden_sizes'] = [256, 256]
         variant['policy_kwargs']['hidden_sizes'] = [256, 256]
+        variant['env_kwargs'] = dict(
+            use_xy=args.use_xy, contact_forces=args.contact_forces)
         exp_postfix = 'horizon{}'.format(
             variant['algo_kwargs']['max_path_length'])
-        variant['relabeler_kwargs']['sparse_reward'] = args.sparse
-        if args.sparse:
-            exp_postfix += 'sparse{}'.format(str(args.sparse))
 
     elif args.env in {'pendulum'}:
         variant['replay_buffer_kwargs']['latent_dim'] = 1
@@ -374,8 +375,8 @@ if __name__ == "__main__":
             variant['algo_kwargs']['max_path_length'])
 
     elif args.env in {'halfcheetahhard'}:
-        variant['replay_buffer_kwargs']['latent_dim'] = 4
-        variant['algo_kwargs']['max_path_length'] = 1000
+        variant['replay_buffer_kwargs']['latent_dim'] = 5
+        variant['algo_kwargs']['max_path_length'] = 500
         variant['trainer_kwargs']['discount'] = 0.99
         variant['algo_kwargs']['num_expl_steps_per_train_loop'] = 1000
         variant['algo_kwargs']['num_train_loops_per_epoch'] = 1
